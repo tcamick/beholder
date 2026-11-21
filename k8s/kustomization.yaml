@@ -1,0 +1,9 @@
+# What Flux on neptune applies from this repository (the beholder
+# GitRepository and Kustomization are declared in the cluster's Flux config,
+# for now in the Plutus repository: deploy/k8s/clusters/neptune/beholder.yaml).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - kube-prometheus-stack.yaml
+  - grafana.yaml

@@ -1,0 +1,12 @@
+# node-exporter reads the host (hostNetwork, hostPID, a read-only mount of
+# /), which no Pod Security level short of privileged admits. The namespace
+# therefore enforces privileged and warns and audits at baseline, so anything
+# else that would need it is still visible.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/audit: baseline
