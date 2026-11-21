@@ -8,3 +8,4 @@ resources:
   - kube-prometheus-stack.yaml
   - grafana.yaml
   - claude-ops.yaml
+  - pushgateway.yaml

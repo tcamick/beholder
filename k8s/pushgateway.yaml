@@ -1,0 +1,77 @@
+# The Pushgateway, for batch jobs: a pod that lives minutes cannot be
+# scraped, so it pushes its counters here at the end of a run and
+# Prometheus scrapes the gateway (docs/adr/0002). Each push replaces its own
+# group (PUT), so a group holds the last run's counts, not a running total.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pushgateway
+  namespace: flux-system
+spec:
+  interval: 30m
+  targetNamespace: monitoring
+  releaseName: pushgateway
+  dependsOn:
+    # Its ServiceMonitor needs the operator's CRDs.
+    - name: kube-prometheus-stack
+  chart:
+    spec:
+      chart: prometheus-pushgateway
+      version: 3.11.2
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+  values:
+    fullnameOverride: pushgateway
+    # Scraped with the pushed labels kept (the chart's default): a pushed
+    # series keeps its own job and grouping labels.
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      interval: 30s
+    # Last night's counts survive a restart of the gateway.
+    persistentVolume:
+      enabled: true
+      storageClass: local-path
+      size: 1Gi
+    extraArgs:
+      - --persistence.file=/data/pushgateway.data
+      - --persistence.interval=5m
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+---
+# The gateway takes pushes with no authentication, so only namespaces that
+# opt in may reach it (label beholder.neptune/push-metrics: "true" on the
+# namespace; each app limits which of its pods send with its own egress
+# policy), and Prometheus may scrape it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pushgateway
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-pushgateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              beholder.neptune/push-metrics: "true"
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9091
