@@ -1,0 +1,42 @@
+# Read access to the monitoring namespace for claude-ops, the account a
+# Claude session on neptune uses instead of root (defined in the Plutus
+# repository: deploy/k8s/neptune/plutus/claude-ops.yaml). Owner, 2026-11-21.
+#
+# It can read pods, logs, events, services, volumes, workloads and the
+# operator's objects, and port-forward to Prometheus alone, to query
+# targets and series. No secrets, no writes, and no port-forward to Grafana:
+# a port-forward bypasses the NetworkPolicy, so it could send the identity
+# header and sign in as anyone.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: claude-ops
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "services", "endpoints", "persistentvolumeclaims", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["prometheuses", "servicemonitors", "podmonitors", "prometheusrules", "probes", "scrapeconfigs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/portforward"]
+    resourceNames: ["prometheus-kube-prometheus-stack-prometheus-0"]
+    verbs: ["create", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: claude-ops
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: claude-ops
+subjects:
+  - kind: ServiceAccount
+    name: claude-ops
+    namespace: plutus
