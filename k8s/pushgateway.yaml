@@ -29,6 +29,7 @@ spec:
       enabled: true
       namespace: monitoring
       interval: 30s
+      honorLabels: true  # the chart's default, stated: dashboards query job="plutus-batch"
     # Last night's counts survive a restart of the gateway.
     persistentVolume:
       enabled: true
